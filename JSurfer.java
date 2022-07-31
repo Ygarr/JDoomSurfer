@@ -8,6 +8,16 @@ import java.net.IDN;
 import java.util.ArrayList;
 import java.util.List;
 
+import java.awt.dnd.DropTarget;
+import java.awt.dnd.DropTargetDragEvent;
+import java.awt.dnd.DropTargetDropEvent;
+import java.awt.dnd.DropTargetEvent;
+import java.awt.dnd.DropTargetListener;
+import java.awt.datatransfer.DataFlavor;
+import java.awt.datatransfer.Transferable;
+import java.awt.datatransfer.UnsupportedFlavorException;
+import java.awt.dnd.DnDConstants;
+
 import javax.swing.AbstractAction;
 import javax.swing.Action;
 import javax.swing.JButton;
@@ -23,38 +33,63 @@ import javax.swing.JToolBar;
 import javax.swing.event.HyperlinkEvent;
 import javax.swing.event.HyperlinkListener;
 
+import java.util.Iterator;
+import java.io.File;
+
 public class JSurfer extends JFrame {
 
   private JTabbedPane tabbedPane = new JTabbedPane();
+  
+  private WebBrowserPane localBrowserPane = new WebBrowserPane();
+  
+  
 
   public JSurfer() {
     super("JSurfer Web Browser");
+  
 
     createNewTab();
 
+     
     getContentPane().add(tabbedPane);
 
-    JMenu fileMenu = new JMenu("File");
+
+    JMenu fileMenu = new JMenu("File");//the menu
     fileMenu.add(new NewTabAction());
     fileMenu.addSeparator();
     fileMenu.add(new ExitAction());
     fileMenu.setMnemonic('F');
-
-    JMenuBar menuBar = new JMenuBar();
+    JMenuBar menuBar = new JMenuBar();//now the menu to bar
     menuBar.add(fileMenu);
     setJMenuBar(menuBar);
 
+     
+
+    
+
   }
+
+
 
   private void createNewTab() {
     JPanel panel = new JPanel(new BorderLayout());
-    WebBrowserPane browserPane = new WebBrowserPane();
+   WebBrowserPane browserPane= new WebBrowserPane();
+
+localBrowserPane=browserPane;
+    browserPane.setDropTarget(new DropTarget(localBrowserPane, DnDConstants.ACTION_COPY,
+        new DropTargetHandler()));
+
     WebToolBar toolBar = new WebToolBar(browserPane);
     panel.add(toolBar, BorderLayout.NORTH);
     panel.add(new JScrollPane(browserPane), BorderLayout.CENTER);
     tabbedPane.addTab("Browser " + tabbedPane.getTabCount(), panel);
   }
+  
+ 
 
+
+
+	//Class NewTab
   private class NewTabAction extends AbstractAction {
 
     public NewTabAction() {
@@ -79,6 +114,54 @@ public class JSurfer extends JFrame {
       System.exit(0);
     }
   }
+  
+  private class DropTargetHandler implements DropTargetListener {
+    public void drop(DropTargetDropEvent event) {
+      Transferable transferable = event.getTransferable();
+       
+      if (transferable.isDataFlavorSupported(DataFlavor.javaFileListFlavor)) {
+        event.acceptDrop(DnDConstants.ACTION_COPY);
+        try {
+          List fileList = (List) transferable.getTransferData(DataFlavor.javaFileListFlavor);
+
+          Iterator iterator = fileList.iterator();
+
+          while (iterator.hasNext()) {
+            File file = (File) iterator.next();
+            
+            localBrowserPane.goToURL(file.toURL());
+          }
+          event.dropComplete(true);
+        } catch (UnsupportedFlavorException flavorException) {
+          flavorException.printStackTrace();
+          event.dropComplete(false);
+        } catch (IOException ioException) {
+          ioException.printStackTrace();
+          event.dropComplete(false);
+        }
+      } else {
+        event.rejectDrop();
+      }
+    }
+
+    public void dragEnter(DropTargetDragEvent event) {
+      if (event.isDataFlavorSupported(DataFlavor.javaFileListFlavor))
+        event.acceptDrag(DnDConstants.ACTION_COPY);
+      else {
+        event.rejectDrag();
+      }
+    }
+
+    public void dragExit(DropTargetEvent event) {
+    }
+
+    public void dragOver(DropTargetDragEvent event) {
+    }
+
+    public void dropActionChanged(DropTargetDragEvent event) {
+    }
+
+  }
 
   public static void main(String args[]) {
     JSurfer jsurfer = new JSurfer();
@@ -88,7 +171,9 @@ public class JSurfer extends JFrame {
   }
 }
 
+//Class WEB pane
 class WebBrowserPane extends JEditorPane {
+ 
 
   private List history = new ArrayList();
 
@@ -158,14 +243,18 @@ class WebToolBar extends JToolBar implements HyperlinkListener {
 
   private JTextField urlTextField;
 
-  public WebToolBar(WebBrowserPane browser) {
+  public WebToolBar(WebBrowserPane browserPane) {
     super("Web Navigation");
 
     // register for HyperlinkEvents
-    webBrowserPane = browser;
+    webBrowserPane = browserPane;
     webBrowserPane.addHyperlinkListener(this);
 
     urlTextField = new JTextField(25);
+
+    
+    
+
     urlTextField.addActionListener(new ActionListener() {
 
       // navigate webBrowser to user-entered URL
@@ -228,4 +317,8 @@ class WebToolBar extends JToolBar implements HyperlinkListener {
       urlTextField.setText(url.toString());
     }
   }
+
+
+
 }
+
